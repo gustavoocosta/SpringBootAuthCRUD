@@ -6,13 +6,22 @@ import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 import java.util.Date;
 import java.nio.charset.StandardCharsets;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 public class JwtUtil {
     private static Key key() {
-        String secret = System.getenv().getOrDefault("JWT_SECRET", System.getProperty("jwt.secret", "default-secret-key-please-change"));
-        byte[] b = secret.getBytes(StandardCharsets.UTF_8);
-        // ensure key length; Keys.hmacShaKeyFor requires sufficient length
-        return Keys.hmacShaKeyFor(b);
+        try {
+            String secret = System.getenv().getOrDefault("JWT_SECRET", System.getProperty("jwt.secret", "default-secret-key-please-change"));
+            byte[] derived = secret.getBytes(StandardCharsets.UTF_8);
+            if (derived.length < 32) { // derive key for short secrets
+                PBEKeySpec spec = new PBEKeySpec(secret.toCharArray(), "salt1234".getBytes(StandardCharsets.UTF_8), 1000, 256);
+                derived = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
+            }
+            return Keys.hmacShaKeyFor(derived);
+        } catch(Exception e) {
+            throw new RuntimeException("Failed to create JWT key", e);
+        }
     }
     private static final long EXP_MS = 1000L * 60 * 60 * 4;
 
