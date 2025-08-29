@@ -11,8 +11,9 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 public class JwtFilter extends OncePerRequestFilter {
     @Override
@@ -25,12 +26,13 @@ public class JwtFilter extends OncePerRequestFilter {
                 Jws<Claims> claims = JwtUtil.validate(token);
                 String subject = claims.getBody().getSubject();
                 String role = claims.getBody().get("role", String.class);
+                List<SimpleGrantedAuthority> authorities = role == null ? List.of() : List.of(new SimpleGrantedAuthority(role));
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(subject, null, Collections.emptyList());
+                        new UsernamePasswordAuthenticationToken(subject, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (JwtException ex) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\":\"invalid_token\"}");
+                response.getWriter().write("{"error":"invalid_token"}");
                 return;
             }
         }

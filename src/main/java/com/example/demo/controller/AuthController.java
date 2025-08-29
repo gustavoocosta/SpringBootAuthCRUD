@@ -26,6 +26,6 @@ public class AuthController {
         if (u == null) return ResponseEntity.status(401).body(Map.of("error","invalid_credentials"));
         if (!encoder.matches(password, u.getPassword())) return ResponseEntity.status(401).body(Map.of("error","invalid_credentials"));
         String token = JwtUtil.generateToken(u.getEmail(), u.getRole());
-        return ResponseEntity.ok(Map.of("accessToken", token, "tokenType", "Bearer"));
+        return ResponseEntity.ok(Map.of("accessToken", token, "tokenType", "Bearer", "role", u.getRole()));
     }
 }

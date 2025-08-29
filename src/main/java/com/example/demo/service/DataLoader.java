@@ -15,8 +15,10 @@ public class DataLoader implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         if (repo.count() == 0) {
-            User u = new User("Admin","admin@example.com", encoder.encode("admin123"), "ROLE_ADMIN");
-            repo.save(u);
+            User admin = new User("Admin","admin@example.com", encoder.encode("admin123"), "ROLE_ADMIN");
+            User user = new User("User","user@example.com", encoder.encode("user123"), "ROLE_USER");
+            repo.save(admin);
+            repo.save(user);
         }
     }
 }
