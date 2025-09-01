@@ -1,31 +1,46 @@
-
 package com.example.demo.controller;
 
+import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtUtil;
-import com.example.demo.model.User;
-import org.springframework.http.ResponseEntity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthController {
-    private final UserRepository repo;
-    private final PasswordEncoder encoder;
 
-    public AuthController(UserRepository repo, PasswordEncoder encoder){this.repo=repo;this.encoder=encoder;}
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+
+    @PostMapping("/register")
+    public User register(@RequestBody User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (user.getRole() == null) {
+            user.setRole("ROLE_USER");
+        }
+        return userRepository.save(user);
+    }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String,String> body){
-        String email = body.get("email");
-        String password = body.get("password");
-        User u = repo.findByEmail(email).orElse(null);
-        if (u == null) return ResponseEntity.status(401).body(Map.of("error","invalid_credentials"));
-        if (!encoder.matches(password, u.getPassword())) return ResponseEntity.status(401).body(Map.of("error","invalid_credentials"));
-        String token = JwtUtil.generateToken(u.getEmail(), u.getRole());
-        return ResponseEntity.ok(Map.of("accessToken", token, "tokenType", "Bearer", "role", u.getRole()));
+    public Map<String, String> login(@RequestBody Map<String, String> loginData) {
+        Optional<User> userOpt = userRepository.findByEmail(loginData.get("email"));
+
+        if (userOpt.isPresent() && passwordEncoder.matches(loginData.get("password"), userOpt.get().getPassword())) {
+            String token = jwtUtil.generateToken(userOpt.get().getEmail(), userOpt.get().getRole());
+            return Map.of(
+                    "accessToken", token,
+                    "tokenType", "Bearer",
+                    "role", userOpt.get().getRole()
+            );
+        } else {
+            throw new RuntimeException("Invalid email or password");
+        }
     }
 }
