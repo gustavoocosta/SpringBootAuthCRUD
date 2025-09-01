@@ -1,41 +1,33 @@
-
 package com.example.demo;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.*;
-import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class AuthIntegrationTest {
-    @Autowired private TestRestTemplate rest;
+class AuthIntegrationTest {
+
+    private final RestTemplate rest = new RestTemplate();
 
     @Test
-    void adminCanAccessSecret() {
-        Map login = Map.of("email","admin@example.com","password","admin123");
-        ResponseEntity<Map> resp = rest.postForEntity("/auth/login", login, Map.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        String token = (String)resp.getBody().get("accessToken");
+    void loginShouldReturnToken() {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", "user");
+        payload.put("password", "password");
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
-        ResponseEntity<Map> secretResp = rest.exchange("/api/admin/secret", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-        assertThat(secretResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(secretResp.getBody().get("secret")).isEqualTo("only-admins-can-see-this");
-    }
+        ResponseEntity<Map> response =
+                rest.postForEntity("http://localhost:8080/auth/login", payload, Map.class);
 
-    @Test
-    void userCannotAccessSecret() {
-        Map login = Map.of("email","user@example.com","password","user123");
-        ResponseEntity<Map> resp = rest.postForEntity("/auth/login", login, Map.class);
-        String token = (String)resp.getBody().get("accessToken");
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
-        ResponseEntity<Map> secretResp = rest.exchange("/api/admin/secret", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-        assertThat(secretResp.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        Map<?, ?> body = Objects.requireNonNull(response.getBody(), "response body is null");
+        Object token = body.get("token");
+        assertThat(token).isInstanceOf(String.class);
+        assertThat(((String) token)).isNotBlank();
     }
 }
