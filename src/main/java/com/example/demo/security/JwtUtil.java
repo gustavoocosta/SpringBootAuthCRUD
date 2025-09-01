@@ -1,41 +1,55 @@
-
 package com.example.demo.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
-import java.security.Key;
+import org.springframework.stereotype.Component;
+
 import java.util.Date;
-import java.nio.charset.StandardCharsets;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
+import java.util.HashMap;
+import java.util.Map;
 
+@Component
 public class JwtUtil {
-    private static Key key() {
-        try {
-            String secret = System.getenv().getOrDefault("JWT_SECRET", System.getProperty("jwt.secret", "default-secret-key-please-change"));
-            byte[] derived = secret.getBytes(StandardCharsets.UTF_8);
-            if (derived.length < 32) { // derive key for short secrets
-                PBEKeySpec spec = new PBEKeySpec(secret.toCharArray(), "salt1234".getBytes(StandardCharsets.UTF_8), 1000, 256);
-                derived = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
-            }
-            return Keys.hmacShaKeyFor(derived);
-        } catch(Exception e) {
-            throw new RuntimeException("Failed to create JWT key", e);
-        }
-    }
-    private static final long EXP_MS = 1000L * 60 * 60 * 4;
 
-    public static String generateToken(String subject, String role) {
+    private final String secret = System.getenv("JWT_SECRET") != null ?
+            System.getenv("JWT_SECRET") :
+            System.getProperty("jwt.secret", "defaultSecretKey");
+
+    private final long expiration = 1000 * 60 * 60; // 1 hora
+
+    public String generateToken(String email, String role) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+
         return Jwts.builder()
-                .setSubject(subject)
-                .claim("role", role)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXP_MS))
-                .signWith(key())
+                .setClaims(claims)
+                .setSubject(email)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(SignatureAlgorithm.HS256, secret.getBytes())
                 .compact();
     }
 
-    public static Jws<Claims> validate(String token) throws JwtException {
-        return Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token);
+    public String extractEmail(String token) {
+        return getClaims(token).getSubject();
+    }
+
+    public String extractRole(String token) {
+        return (String) getClaims(token).get("role");
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            getClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private Claims getClaims(String token) {
+        return Jwts.parser()
+                .setSigningKey(secret.getBytes())
+                .parseClaimsJws(token)
+                .getBody();
     }
 }
